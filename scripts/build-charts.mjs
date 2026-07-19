@@ -118,10 +118,28 @@ function normalize(candles) {
   return candles.map((k) => ({ o: r4(k.o), h: r4(k.h), l: r4(k.l), c: r4(k.c) }))
 }
 
+/**
+ * 종가 체인 연결: 캔들 i의 시가를 캔들 i-1의 종가로 강제.
+ * 이유 — 게임 손익은 종가→종가 수익률로 계산되므로(갭 포함), 시가-종가 몸통을
+ * 그대로 그리면 주말/이벤트 갭 구간에서 화면과 손익이 어긋난다 (예: META 2018.2월
+ * -5% 갭다운, 2018.7월 -19% 실적 갭). 몸통이 곧 그 틱의 실제 수익률이 되도록
+ * 연결하고, 고가/저가는 갭 범위를 포함해 확장한다. 종가는 건드리지 않으므로
+ * 시뮬레이션 수치는 완전히 동일하다.
+ */
+function chainOpens(candles) {
+  const out = [candles[0]]
+  for (let i = 1; i < candles.length; i++) {
+    const k = candles[i]
+    const o = out[i - 1].c
+    out.push({ o, h: Math.max(k.h, o), l: Math.min(k.l, o), c: k.c })
+  }
+  return out
+}
+
 const charts = MANIFEST.map((m, idx) => {
   const daily = parseYahoo(m.file)
   if (daily.length < 100) throw new Error(`${m.file}: only ${daily.length} rows`)
-  const candles = normalize(resample(daily, TICKS))
+  const candles = chainOpens(normalize(resample(daily, TICKS)))
   const buyHoldPct = (candles[TICKS - 1].c / candles[0].o - 1) * 100
   return {
     id: m.file.replace('.json', ''),

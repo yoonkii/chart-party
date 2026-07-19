@@ -84,6 +84,22 @@ describe('simulate', () => {
   })
 })
 
+describe('차트 데이터 무결성', () => {
+  it('캔들은 종가 체인으로 연결된다 (o[i] = c[i-1], 화면 = 손익 일치)', () => {
+    for (const c of charts as any[]) {
+      const ks = c.candles as Candle[]
+      expect(ks[0].o).toBe(100)
+      for (let i = 0; i < ks.length; i++) {
+        const k = ks[i]
+        if (i > 0) expect(k.o).toBe(ks[i - 1].c)
+        expect(k.h).toBeGreaterThanOrEqual(Math.max(k.o, k.c))
+        expect(k.l).toBeLessThanOrEqual(Math.min(k.o, k.c))
+        expect(k.l).toBeGreaterThan(0)
+      }
+    }
+  })
+})
+
 describe('벤치마크', () => {
   it('perfect는 항상 존버와 전량현금(0%) 이상', () => {
     for (const c of charts as any[]) {
