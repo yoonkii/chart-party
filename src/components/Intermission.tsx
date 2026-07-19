@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ChartData, PlayerMeta, RoundResult } from '../engine/types'
 import { skillScore } from '../engine/sim'
+import { useI18n } from '../i18n'
 
 interface Props {
   chart: ChartData
@@ -9,7 +10,7 @@ interface Props {
   totals: number[]
   roundIndex: number
   isFinal: boolean
-  nextTheme: string | null
+  nextTheme: number | null
   onNext: () => void
 }
 
@@ -17,6 +18,7 @@ const AUTO_MS = 30000
 
 /** 정산 쇼 — 매 차트의 클라이맥스 (§4) */
 export default function Intermission({ chart, players, result, totals, roundIndex, isFinal, nextTheme, onNext }: Props) {
+  const { t, lang, pname, themeName, chartName, chartBlurb } = useI18n()
   const [autoLeft, setAutoLeft] = useState(AUTO_MS)
 
   useEffect(() => {
@@ -35,53 +37,53 @@ export default function Intermission({ chart, players, result, totals, roundInde
   const sorted = [...result.results].sort((a, b) => a.rank - b.rank)
   const bh = result.buyHoldPct
   const losers = sorted.filter((r) => r.returnPct < bh)
-  const winners = sorted.filter((r) => r.returnPct >= bh)
   const mySkill = skillScore(result.results[0].returnPct, result.perfectPct)
+
+  const fmtFee = (x: number) =>
+    lang === 'en' ? `₩${Math.round(x / 1000).toLocaleString()}K` : `${Math.round(x / 10000).toLocaleString()}만`
 
   return (
     <div className="screen inter">
       <div className="reveal-stage">
         <div className="reveal-card" style={{ animationDelay: '0.05s' }}>
-          <div className="reveal-kicker">차트 정체 공개</div>
+          <div className="reveal-kicker">{t.revealKicker}</div>
           <div className="reveal-identity">
             <span className="reveal-symbol">{chart.symbol}</span>
-            <span className="reveal-name">{chart.name}</span>
+            <span className="reveal-name">{chartName(chart.id, chart.name)}</span>
             <span className="reveal-period">{chart.period}</span>
           </div>
-          <p className="reveal-blurb">{chart.blurb}</p>
+          <p className="reveal-blurb">{chartBlurb(chart.id, chart.blurb)}</p>
         </div>
 
         <div className="reveal-card" style={{ animationDelay: '0.65s' }}>
-          <div className="reveal-kicker">존버 벤치마크</div>
+          <div className="reveal-kicker">{t.benchKicker}</div>
           <div className="bench-row">
             <span className={`bench-big ${bh >= 0 ? 'up-c' : 'down-c'}`}>
               {bh >= 0 ? '+' : ''}{bh.toFixed(1)}%
             </span>
             <span className="bench-label">
-              첫 틱에 풀매수하고 <b>가만히만 있었다면</b> 이만큼이었습니다.<br />
-              이론상 완벽한 매매는 <b className="gold-c">+{result.perfectPct.toFixed(1)}%</b>
+              {t.benchLine1a}<b>{t.benchLine1b}</b>{t.benchLine1c}
+              <br />
+              {t.benchLine2}<span className="gold-c">+{result.perfectPct.toFixed(1)}%</span>
             </span>
           </div>
-          {losers.length > 0 && (
+          {losers.length > 0 ? (
             <div className="shame-list">
-              <span className="dim" style={{ fontSize: 12, alignSelf: 'center' }}>📉 존버보다 못 벌었다:</span>
+              <span className="shame-label">{t.shameLabel}</span>
               {losers.map((r, i) => (
                 <span key={r.playerId} className="shame-chip" style={{ animationDelay: `${1.1 + i * 0.12}s` }}>
-                  {players[r.playerId].emoji} {players[r.playerId].name}{' '}
+                  {players[r.playerId].emoji} {pname(players[r.playerId])}{' '}
                   {r.returnPct >= 0 ? '+' : ''}{r.returnPct.toFixed(1)}%
                 </span>
               ))}
             </div>
-          )}
-          {losers.length === 0 && (
+          ) : (
             <div className="shame-list">
-              <span className="shame-chip praise-chip" style={{ animationDelay: '1.1s' }}>
-                🎉 전원이 존버를 이겼다! 이런 판은 흔치 않습니다
-              </span>
+              <span className="shame-chip praise-chip" style={{ animationDelay: '1.1s' }}>{t.praiseAll}</span>
             </div>
           )}
           <div className="skill-wrap">
-            <span className="dim" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>내 스킬 점수</span>
+            <span className="skill-label">{t.mySkill}</span>
             <div className="skill-bar">
               <div className="skill-fill" style={{ width: `${mySkill}%` }} />
             </div>
@@ -91,13 +93,13 @@ export default function Intermission({ chart, players, result, totals, roundInde
 
         <div className="reveal-card" style={{ animationDelay: '1.15s' }}>
           <div className="reveal-kicker">
-            차트 {roundIndex + 1} 정산 {isFinal ? '— 🔥 파이널 ×1.5 적용' : ''}
+            {t.settleKicker(roundIndex + 1)} {isFinal ? t.settleFinal : ''}
           </div>
           <table className="result-table">
             <thead>
               <tr>
-                <th>#</th><th>트레이더</th><th className="num">수익률</th><th className="num">수수료</th>
-                <th className="num">스킬</th><th className="num">획득 P</th><th className="num">누적 P</th>
+                <th>#</th><th>{t.thTrader}</th><th className="num">{t.thReturn}</th><th className="num">{t.thFees}</th>
+                <th className="num">{t.thSkill}</th><th className="num">{t.thPts}</th><th className="num">{t.thTotal}</th>
               </tr>
             </thead>
             <tbody>
@@ -106,11 +108,11 @@ export default function Intermission({ chart, players, result, totals, roundInde
                 return (
                   <tr key={r.playerId} className={r.playerId === 0 ? 'me' : ''}>
                     <td className="mono">{medal(r.rank)}</td>
-                    <td>{p.emoji} {p.name}</td>
+                    <td>{p.emoji} {pname(p)}</td>
                     <td className={`num ${r.returnPct > 0.005 ? 'up-c' : r.returnPct < -0.005 ? 'down-c' : 'dim'}`}>
                       {r.returnPct >= 0 ? '+' : ''}{r.returnPct.toFixed(1)}%
                     </td>
-                    <td className="num dim">{Math.round(r.fees / 10000).toLocaleString()}만</td>
+                    <td className="num dim">{fmtFee(r.fees)}</td>
                     <td className="num dim">{skillScore(r.returnPct, result.perfectPct)}%</td>
                     <td className="num pts-gain">+{r.points}</td>
                     <td className="num">{fmtP(totals[r.playerId])}</td>
@@ -122,9 +124,9 @@ export default function Intermission({ chart, players, result, totals, roundInde
         </div>
 
         <button className="next-btn" onClick={onNext}>
-          {isFinal ? '🏆 최종 시상식' : `다음 차트: ${nextTheme} ▶`}
+          {isFinal ? t.toAwards : `${t.nextChart(nextTheme !== null ? themeName(nextTheme) : '')} ▶`}
         </button>
-        <div className="auto-note">{Math.ceil(autoLeft / 1000)}초 후 자동 진행</div>
+        <div className="auto-note">{t.autoNote(Math.ceil(autoLeft / 1000))}</div>
       </div>
     </div>
   )

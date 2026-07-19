@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { BOTS } from '../engine/bots'
 import { Speed } from '../App'
+import { useI18n } from '../i18n'
 
 export interface LobbyConfig {
   name: string
@@ -10,95 +11,126 @@ export interface LobbyConfig {
 
 const EMOJIS = ['🦁', '🐯', '🦊', '🐼', '🐵', '🦄', '🐙', '🐳']
 
-const SPEEDS: { key: string; label: string; sub: string; speed: Speed }[] = [
-  { key: 'normal', label: '보통', sub: '락인 15초 · 재생 10초', speed: { lockMs: 15000, playMs: 10000 } },
-  { key: 'fast', label: '빠름', sub: '락인 8초 · 재생 6초', speed: { lockMs: 8000, playMs: 6000 } },
-  { key: 'blitz', label: '초스피드', sub: '락인 5초 · 재생 4초', speed: { lockMs: 5000, playMs: 4000 } },
+const SPEED_VALUES: Speed[] = [
+  { lockMs: 15000, playMs: 10000 },
+  { lockMs: 8000, playMs: 6000 },
+  { lockMs: 5000, playMs: 4000 },
 ]
 
-const TICKER_ITEMS = [
+const TICKER_KO = [
   ['차트파티', '+128.4%', true], ['존버지수', '+34.2%', true], ['단타위험', '-45.1%', false],
   ['수수료주의보', '-0.5%', false], ['깜깜이배팅', '+7.7%', true], ['풀숏경보', '-88.0%', false],
   ['바닥캐치', '+61.3%', true], ['역베천재', '+15.9%', true], ['마진콜', '-95.0%', false],
 ] as const
 
+const TICKER_EN = [
+  ['CHARTPARTY', '+128.4%', true], ['HODLINDEX', '+34.2%', true], ['SCALPRISK', '-45.1%', false],
+  ['FEEALERT', '-0.5%', false], ['BLINDBET', '+7.7%', true], ['MAXSHORT', '-88.0%', false],
+  ['BOTTOMCATCH', '+61.3%', true], ['FADEGENIUS', '+15.9%', true], ['MARGINCALL', '-95.0%', false],
+] as const
+
 export default function Lobby({ onStart }: { onStart: (cfg: LobbyConfig) => void }) {
+  const { lang, setLang, t } = useI18n()
   const [name, setName] = useState(() => localStorage.getItem('cp_name') ?? '')
   const [emoji, setEmoji] = useState(() => localStorage.getItem('cp_emoji') ?? '🦁')
-  const [speedKey, setSpeedKey] = useState(() => localStorage.getItem('cp_speed') ?? 'normal')
+  const [speedIdx, setSpeedIdx] = useState(() => Number(localStorage.getItem('cp_speed_idx') ?? 0))
 
   const start = () => {
     localStorage.setItem('cp_name', name)
     localStorage.setItem('cp_emoji', emoji)
-    localStorage.setItem('cp_speed', speedKey)
-    onStart({ name: name.trim(), emoji, speed: SPEEDS.find((s) => s.key === speedKey)!.speed })
+    localStorage.setItem('cp_speed_idx', String(speedIdx))
+    onStart({ name: name.trim(), emoji, speed: SPEED_VALUES[speedIdx] })
   }
 
   return (
     <div className="screen lobby">
       <BgChart />
-      <div>
-        <h1 className="lobby-title">차트 파티</h1>
-        <p className="lobby-tag">
-          전원이 <strong>똑같은 실제 주식 차트</strong>를 받는다. <strong>1년치가 5분</strong>에 재생된다.<br />
-          운 논란 원천 차단 — <strong>판단력만으로</strong> 갈린다.
-        </p>
+
+      <div className="lang-toggle">
+        <button className={lang === 'ko' ? 'sel' : ''} onClick={() => setLang('ko')}>한국어</button>
+        <button className={lang === 'en' ? 'sel' : ''} onClick={() => setLang('en')}>EN</button>
       </div>
 
-      <div className="lobby-card">
-        <div className="lobby-row">
-          <span className="lobby-label">닉네임</span>
-          <input
-            className="name-input"
-            placeholder="트레이더명 입력"
-            maxLength={10}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && start()}
-          />
-          <div className="emoji-pick">
-            {EMOJIS.map((e) => (
-              <button key={e} className={`emoji-btn${e === emoji ? ' sel' : ''}`} onClick={() => setEmoji(e)}>
-                {e}
-              </button>
-            ))}
+      <div className="lobby-grid">
+        <div className="lobby-hero">
+          <div className="hero-kicker">{t.kicker}</div>
+          <h1 className="lobby-title">
+            {lang === 'ko' ? <>차트<br />파티</> : <>CHART<br />PARTY</>}
+          </h1>
+          <p className="lobby-tag">
+            {t.tag1}
+            <br />
+            <strong>{t.tag2}</strong>
+          </p>
+          <div className="hero-rules">
+            <div className="rule-line"><span className="rule-no">01</span>{t.rule1}</div>
+            <div className="rule-line"><span className="rule-no">02</span>{t.rule2}</div>
           </div>
         </div>
 
-        <div className="lobby-row">
-          <span className="lobby-label">템포</span>
-          {SPEEDS.map((s) => (
-            <button key={s.key} className={`speed-btn${s.key === speedKey ? ' sel' : ''}`} onClick={() => setSpeedKey(s.key)}>
-              {s.label}
-              <small>{s.sub}</small>
-            </button>
-          ))}
-        </div>
-
-        <div>
-          <div className="lobby-label" style={{ marginBottom: 8 }}>오늘의 상대 — 7인의 봇 트레이더</div>
-          <div className="bot-roster">
-            {BOTS.map((b) => (
-              <div key={b.key} className="bot-chip">
-                <span className="e">{b.emoji}</span>
-                <span>
-                  {b.name}
-                  <span className="t">{b.tagline}</span>
-                </span>
+        <div className="lobby-panel">
+          <div>
+            <div className="panel-cap">{t.nickname}</div>
+            <div className="setup-row" style={{ flexDirection: 'column', gap: 8 }}>
+              <input
+                className="name-input"
+                placeholder={t.namePlaceholder}
+                maxLength={12}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && start()}
+              />
+              <div className="emoji-pick">
+                {EMOJIS.map((e) => (
+                  <button key={e} className={`emoji-btn${e === emoji ? ' sel' : ''}`} onClick={() => setEmoji(e)}>
+                    {e}
+                  </button>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
+
+          <div>
+            <div className="panel-cap">{t.tempo}</div>
+            <div className="speed-row">
+              {t.speeds.map((s, i) => (
+                <button key={i} className={`speed-btn${i === speedIdx ? ' sel' : ''}`} onClick={() => setSpeedIdx(i)}>
+                  {s.label}
+                  <small>{s.sub}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="panel-cap">{t.roster}</div>
+            <div className="bot-roster">
+              {BOTS.map((b) => (
+                <BotRow key={b.key} botKey={b.key} emoji={b.emoji} />
+              ))}
+            </div>
+          </div>
+
+          <button className="start-btn" onClick={start}>
+            {t.start}
+            <small>{t.startSub}</small>
+          </button>
         </div>
-
-        <button className="start-btn" onClick={start}>매치 시작 — 6차트 리그전</button>
-
-        <p className="rules-line">
-          매 차트 시작 자본 1,000만 · 수익률 순위로 포인트 (10·7·5·4·3·2·1·0) · 파이널 ×1.5<br />
-          롱/숏 슬라이더 하나 · 포지션 변경분 수수료 0.5% · 한 틱 -95% 손실 시 강제청산 💥
-        </p>
       </div>
 
-      <Ticker />
+      <Ticker lang={lang} />
+    </div>
+  )
+}
+
+function BotRow({ botKey, emoji }: { botKey: string; emoji: string }) {
+  const { pname, ptagline } = useI18n()
+  const fake = { id: -1, name: '', emoji, isBot: true, botKey }
+  return (
+    <div className="bot-chip">
+      <span className="e">{emoji}</span>
+      <span>{pname(fake)}</span>
+      <span className="t">{ptagline(fake)}</span>
     </div>
   )
 }
@@ -130,7 +162,7 @@ function BgChart() {
       const slot = W / 88
       candles.forEach((k, i) => {
         const up = k.c >= k.o
-        ctx.fillStyle = up ? 'rgba(255,77,94,0.10)' : 'rgba(77,141,255,0.10)'
+        ctx.fillStyle = up ? 'rgba(255,61,84,0.09)' : 'rgba(61,123,255,0.09)'
         ctx.strokeStyle = ctx.fillStyle
         const x = i * slot + slot / 2
         const y = (v: number) => H * (1 - v * 0.7 - 0.15)
@@ -148,8 +180,9 @@ function BgChart() {
   return <canvas ref={ref} className="lobby-bg-chart" />
 }
 
-function Ticker() {
-  const items = [...TICKER_ITEMS, ...TICKER_ITEMS]
+function Ticker({ lang }: { lang: string }) {
+  const base = lang === 'ko' ? TICKER_KO : TICKER_EN
+  const items = [...base, ...base]
   return (
     <div className="ticker-wrap">
       <div className="ticker">

@@ -13,8 +13,8 @@ interface Props {
   liqMarks: number[]
 }
 
-const UP = '#ff4d5e'
-const DOWN = '#4d8dff'
+const UP = '#ff3d54'
+const DOWN = '#3d7bff'
 
 /** y축은 항상 로그 공간 — 밈 주식(+4800%)과 횡보(±5%)를 같은 코드로 처리 */
 export default function CandleChart({ candles, revealed, animTick, animProgress, liqMarks }: Props) {
@@ -96,14 +96,14 @@ export default function CandleChart({ candles, revealed, animTick, animProgress,
       // 시작가 100 기준선
       const y100 = y(100)
       if (y100 > padT - 4 && y100 < H - padB + 4) {
-        ctx.strokeStyle = 'rgba(255,203,71,0.35)'
+        ctx.strokeStyle = 'rgba(255,176,32,0.35)'
         ctx.setLineDash([5, 5])
         ctx.beginPath()
         ctx.moveTo(padL, y100)
         ctx.lineTo(W - padR + 6, y100)
         ctx.stroke()
         ctx.setLineDash([])
-        ctx.fillStyle = 'rgba(255,203,71,0.8)'
+        ctx.fillStyle = 'rgba(255,176,32,0.8)'
         ctx.fillText('100', W - padR + 10, y100 - 9)
       }
 

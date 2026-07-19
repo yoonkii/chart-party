@@ -1,9 +1,14 @@
-# 📈 차트 파티 (Chart Party) v0.1
+# 📈 차트 파티 (Chart Party) v0.2
 
 > **한 줄 피치**: 전원이 똑같은 실제 주식 차트를 받는다. 1년치가 5분에 재생된다. 판단력만으로 갈린다.
+> *Everyone gets the same real stock chart. A year replays in 5 minutes. Only judgment decides.*
 
 GDD v0.1의 1차 검증 목표(*"틱 재생 템포의 손맛"*)를 구현한 **플레이 가능한 풀 매치 프로토타입**.
 봇 7인과 함께하는 6차트 리그전 전체 루프(로비 → 6차트 → 정산 쇼 → 최종 시상)가 완성되어 있다.
+
+**v0.2**: 한/영 완전 이중언어(봇 이름·차트 해설·칭호 포함, 로비 토글), "미드나이트 터미널 × 증권방송"
+디자인 전면 재작업, 관전 드라마 강화 — 등락 전광판(직전 틱/시작가 대비), LIVE 배지, 전원 체결 스탬프,
+큰 등락 화면 플래시, 랭킹 손익 비례 바 + 틱당 손익 플로트 + 1위 왕관.
 
 ## 실행
 
@@ -61,6 +66,7 @@ src/engine/
   sim.test.ts              단위 테스트 13개
 src/components/
   Lobby / Round / CandleChart(캔버스, 로그스케일) / RankBar / Intermission / Final
+src/i18n.tsx               한/영 사전 (UI·봇 이름·차트 해설·칭호 전체)
 src/sound.ts               WebAudio 신스 (외부 에셋 0)
 ```
 

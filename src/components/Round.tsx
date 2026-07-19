@@ -6,6 +6,7 @@ import { Rng, mulberry32 } from '../engine/prng'
 import { Speed } from '../App'
 import CandleChart from './CandleChart'
 import RankBar from './RankBar'
+import { useI18n } from '../i18n'
 import { isMuted, sCountdown, sLiquidation, sLock, sRoundEnd, sTick, sWindowStart, setMuted } from '../sound'
 
 interface Props {
@@ -21,7 +22,11 @@ interface Props {
 
 type Phase = 'lock' | 'play'
 
+/** 화면 플래시가 발동하는 한 틱 등락 임계값 */
+const FLASH_THRESHOLD = 0.03
+
 export default function Round({ chart, players, roundIndex, isFinal, speed, seed, onDone }: Props) {
+  const { t, pname, themeName } = useI18n()
   const n = players.length
   const candles = chart.candles
 
@@ -48,6 +53,12 @@ export default function Round({ chart, players, roundIndex, isFinal, speed, seed
   const [liqMarks, setLiqMarks] = useState<number[]>([])
   const [liqSet, setLiqSet] = useState<Set<number>>(() => new Set())
   const [muted, setMutedState] = useState(isMuted())
+  // 드라마 요소
+  const [lastTickPct, setLastTickPct] = useState<number | null>(null)
+  const [flash, setFlash] = useState<{ dir: 'up' | 'down'; id: number } | null>(null)
+  const [deltas, setDeltas] = useState<number[]>(() => new Array(n).fill(0))
+  const [deltaStamp, setDeltaStamp] = useState(0)
+  const [showStamp, setShowStamp] = useState(false)
 
   const returns = useMemo(() => tickReturns(candles), [candles])
 
@@ -68,7 +79,7 @@ export default function Round({ chart, players, roundIndex, isFinal, speed, seed
     if (doneRef.current) return
     setPhase('lock')
     setHumanLocked(false)
-    setLockedFlags((f) => f.map((_, i) => !players[i] || false))
+    setLockedFlags(new Array(n).fill(false))
     setLockLeft(speed.lockMs)
 
     // 봇 의사결정 (현재까지 공개된 캔들만 사용)
@@ -83,14 +94,14 @@ export default function Round({ chart, players, roundIndex, isFinal, speed, seed
     const cosmetic: number[] = []
     players.forEach((p) => {
       if (!p.isBot) return
-      const t = window.setTimeout(() => {
+      const tm = window.setTimeout(() => {
         setLockedFlags((f) => {
           const nf = [...f]
           nf[p.id] = true
           return nf
         })
       }, 400 + botRngsRef.current[p.id]() * speed.lockMs * 0.62)
-      cosmetic.push(t)
+      cosmetic.push(tm)
     })
 
     lockActiveRef.current = true
@@ -114,7 +125,7 @@ export default function Round({ chart, players, roundIndex, isFinal, speed, seed
 
     return () => {
       window.clearInterval(iv)
-      cosmetic.forEach((t) => window.clearTimeout(t))
+      cosmetic.forEach((tm) => window.clearTimeout(tm))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [windowIdx])
@@ -133,6 +144,8 @@ export default function Round({ chart, players, roundIndex, isFinal, speed, seed
     setPositionsNow(players.map((p) => steppersRef.current[p.id].pos))
     setEquities(steppersRef.current.map((s) => s.eq))
     setLockedFlags(new Array(n).fill(true))
+    setShowStamp(true)
+    window.setTimeout(() => setShowStamp(false), 1000)
     sWindowStart()
     setPhase('play')
   }
@@ -164,6 +177,7 @@ export default function Round({ chart, players, roundIndex, isFinal, speed, seed
       }
       // ── 틱 확정
       const r = returns[tick]
+      const prevEqs = steppersRef.current.map((s) => s.eq)
       const liquidatedIds: number[] = []
       players.forEach((p) => {
         const step = steppersRef.current[p.id].advanceTick(tick)
@@ -171,11 +185,15 @@ export default function Round({ chart, players, roundIndex, isFinal, speed, seed
       })
       setEquities(steppersRef.current.map((s) => s.eq))
       setPositionsNow(players.map((p) => steppersRef.current[p.id].pos))
+      setDeltas(steppersRef.current.map((s, i) => s.eq - prevEqs[i]))
+      setDeltaStamp(tick + 1)
+      setLastTickPct(r * 100)
+      if (Math.abs(r) >= FLASH_THRESHOLD) setFlash({ dir: r >= 0 ? 'up' : 'down', id: tick })
       sTick(r >= 0, r)
       if (liquidatedIds.length > 0) {
         sLiquidation()
-        const names = liquidatedIds.map((id) => `${players[id].emoji} ${players[id].name}`)
-        setLiqBanner(`💥 강제청산! ${names.join(', ')}`)
+        const names = liquidatedIds.map((id) => `${players[id].emoji} ${pname(players[id])}`)
+        setLiqBanner(`💥 ${t.liqBanner(names.join(', '))}`)
         setLiqMarks((m) => [...m, tick])
         setLiqSet((s) => {
           const ns = new Set(s)
@@ -248,10 +266,12 @@ export default function Round({ chart, players, roundIndex, isFinal, speed, seed
   const feePreview = useMemo(() => {
     const dx = Math.abs(pendingPos - steppersRef.current[0].pos)
     return steppersRef.current[0].eq * FEE_RATE * dx
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingPos, phase, windowIdx, equities])
 
   const lockSec = Math.ceil(lockLeft / 1000)
   const ringPct = phase === 'lock' ? (lockLeft / speed.lockMs) * 100 : 100
+  const vsStartPct = revealed > 0 ? (candles[revealed - 1].c / 100 - 1) * 100 : null
 
   const toggleMute = () => {
     const m = !muted
@@ -260,54 +280,100 @@ export default function Round({ chart, players, roundIndex, isFinal, speed, seed
   }
 
   const posLabel = (x: number) =>
-    x > 0.01 ? `롱 ${Math.round(x * 100)}%` : x < -0.01 ? `숏 ${Math.round(-x * 100)}%` : '현금 100%'
+    x > 0.01 ? `${t.long} ${Math.round(x * 100)}%` : x < -0.01 ? `${t.short} ${Math.round(-x * 100)}%` : t.cash100
+
+  const pct = (x: number | null, digits = 1) =>
+    x === null ? '—' : `${x >= 0 ? '+' : ''}${x.toFixed(digits)}%`
+
+  const colorOf = (x: number | null) =>
+    x === null ? 'dim' : x > 0.005 ? 'up-c' : x < -0.005 ? 'down-c' : 'dim'
 
   return (
     <div className="screen round">
       <div className="round-head">
-        <span className="round-chart-no">차트 {roundIndex + 1}<span className="dim">/6</span></span>
-        <span className={`theme-badge${isFinal ? ' final' : ''}`}>
-          {isFinal ? '🔥 파이널 ×1.5 — ' : ''}{chart.themeName}
+        <span className="head-chip">
+          {t.chart} <b>{roundIndex + 1}</b>/6
         </span>
-        <span className="window-step">의사결정 {Math.min(windowIdx + 1, WINDOWS)}<span className="dim">/{WINDOWS}</span></span>
+        <span className={`head-chip theme${isFinal ? ' final' : ''}`}>
+          {isFinal ? `🔥 ${t.finalTag} — ` : ''}{themeName(chart.theme)}
+        </span>
+        <span className="head-chip">
+          {t.decision} <b>{String(Math.min(windowIdx + 1, WINDOWS)).padStart(2, '0')}</b>/{WINDOWS}
+        </span>
         <div className="spacer" />
         <div className={`phase-pill ${phase === 'lock' ? 'phase-lock' : 'phase-play'}`}>
           <div
             className="ring"
             style={{
-              background: `conic-gradient(${phase === 'lock' ? 'var(--gold)' : 'var(--mint)'} ${ringPct}%, rgba(148,178,226,0.12) 0)`,
-              borderRadius: '50%',
+              background: `conic-gradient(${phase === 'lock' ? 'var(--amber)' : 'var(--up)'} ${ringPct}%, rgba(163,183,219,0.12) 0)`,
             }}
           >
-            <span style={{ background: 'var(--panel)', borderRadius: '50%', width: 26, height: 26, display: 'grid', placeItems: 'center' }}>
-              {phase === 'lock' ? lockSec : '▶'}
-            </span>
+            <span>{phase === 'lock' ? lockSec : '▶'}</span>
           </div>
-          {phase === 'lock' ? '주문 접수 중' : '차트 재생 중'}
+          {phase === 'lock' ? t.orderPhase : t.playPhase}
         </div>
-        <button className="mute-btn" onClick={toggleMute} title="사운드">
+        <button className="mute-btn" onClick={toggleMute} title="sound">
           {muted ? '🔇' : '🔊'}
         </button>
       </div>
 
       <div className="round-body">
         <div className="chart-panel">
-          {liqBanner && <div className="liq-banner">{liqBanner}</div>}
-          {revealed === 0 && phase === 'lock' && (
-            <div
-              style={{
-                position: 'absolute', inset: 0, display: 'grid', placeItems: 'center',
-                color: 'var(--text-faint)', fontSize: 15, textAlign: 'center', lineHeight: 1.8, zIndex: 2,
-              }}
-            >
-              <div>
-                <div style={{ fontSize: 34 }}>🎬</div>
-                정체불명 종목, 1년치 60틱이 지금부터 재생됩니다<br />
-                <b style={{ color: 'var(--text-dim)' }}>첫 창은 깜깜이 배팅 — 감으로 지르세요</b>
-              </div>
+          <div className="delta-strip">
+            <div className="delta-cell">
+              <label>{t.tick}</label>
+              <b className="dim">{revealed}<span style={{ color: 'var(--text-faint)', fontSize: 12 }}>/60</span></b>
             </div>
-          )}
+            <div className="divider" />
+            <div className="delta-cell big">
+              <label>{t.lastTick}</label>
+              <b
+                key={deltaStamp}
+                className={`${colorOf(lastTickPct)} ${
+                  lastTickPct !== null ? (lastTickPct >= 0 ? 'delta-flash-up' : 'delta-flash-down') : ''
+                }`}
+              >
+                {pct(lastTickPct)}
+                {lastTickPct !== null && (
+                  <span style={{ fontSize: 15 }}> {lastTickPct >= 0 ? '▲' : '▼'}</span>
+                )}
+              </b>
+            </div>
+            <div className="divider" />
+            <div className="delta-cell">
+              <label>{t.vsStart}</label>
+              <b className={colorOf(vsStartPct)}>{pct(vsStartPct)}</b>
+            </div>
+            <div className="spacer" />
+            {phase === 'play' ? (
+              <div className="live-badge">
+                <span className="dot" />
+                {t.live}
+              </div>
+            ) : (
+              <div className="live-badge amber">
+                <span className="dot" />
+                {t.orderPhase}
+              </div>
+            )}
+          </div>
+
+          {liqBanner && <div className="liq-banner">{liqBanner}</div>}
+
           <div className="chart-area">
+            <div className="corner-b" />
+            {flash && <div key={flash.id} className={`chart-flash ${flash.dir}`} />}
+            {showStamp && <div className="stamp">🔒 {t.allLocked}</div>}
+            {revealed === 0 && phase === 'lock' && (
+              <div className="blind-overlay">
+                <div>
+                  <span className="q">???</span>
+                  {t.blind1}
+                  <br />
+                  <b>{t.blind2}</b>
+                </div>
+              </div>
+            )}
             <CandleChart
               candles={candles}
               revealed={revealed}
@@ -317,10 +383,10 @@ export default function Round({ chart, players, roundIndex, isFinal, speed, seed
             />
           </div>
           <div className="tick-dots">
-            {Array.from({ length: WINDOWS * TICKS_PER_WINDOW }, (_, t) => (
+            {Array.from({ length: WINDOWS * TICKS_PER_WINDOW }, (_, tk) => (
               <div
-                key={t}
-                className={`tick-dot${t < revealed ? ' done' : ''}${t === revealed && phase === 'play' ? ' now' : ''}${t % 5 === 0 && t >= revealed ? ' win-edge' : ''}`}
+                key={tk}
+                className={`tick-dot${tk < revealed ? ' done' : ''}${tk === revealed && phase === 'play' ? ' now' : ''}${tk % 5 === 0 && tk >= revealed ? ' win-edge' : ''}`}
               />
             ))}
           </div>
@@ -333,31 +399,37 @@ export default function Round({ chart, players, roundIndex, isFinal, speed, seed
           phase={phase}
           lockedFlags={lockedFlags}
           liqSet={liqSet}
+          deltas={deltas}
+          deltaStamp={deltaStamp}
         />
       </div>
 
       <div className="order-panel">
         <div className="order-top">
           <span className={`pos-readout ${pendingPos > 0.01 ? 'up-c' : pendingPos < -0.01 ? 'down-c' : 'dim'}`}>
+            {pendingPos > 0.01 && <span className="arr">▲ </span>}
+            {pendingPos < -0.01 && <span className="arr">▼ </span>}
             {posLabel(pendingPos)}
           </span>
           <span className="fee-preview">
-            변경 수수료 예상 <b>-{Math.round(feePreview).toLocaleString()}원</b> (변경분의 0.5%)
+            {t.feePreview(Math.round(feePreview).toLocaleString())}
+            <br />
+            {t.feeNote}
           </span>
           <div className="spacer" />
           {phase === 'lock' ? (
             <button className={`lock-btn${humanLocked ? ' locked' : ''}`} onClick={humanLock} disabled={humanLocked}>
-              {humanLocked ? '🔒 락인 완료' : '⚡ 락인'}
+              {humanLocked ? `🔒 ${t.lockedBtn}` : `⚡ ${t.lockBtn}`}
             </button>
           ) : (
             <span className="play-hint">
-              포지션 고정 — <span className="mint-c">{posLabel(steppersRef.current[0]?.pos ?? 0)}</span> 관전 중
+              <b>{posLabel(steppersRef.current[0]?.pos ?? 0)}</b> — {t.playPhase}
             </span>
           )}
         </div>
 
         <div className="slider-zone">
-          <span className="slider-side down-c">숏 100%</span>
+          <span className="slider-side down-c">{t.short} 100%</span>
           <input
             className="pos-slider"
             type="range"
@@ -368,24 +440,18 @@ export default function Round({ chart, players, roundIndex, isFinal, speed, seed
             disabled={phase !== 'lock' || humanLocked}
             onChange={(e) => setPendingPos(Number(e.target.value) / 100)}
           />
-          <span className="slider-side up-c">롱 100%</span>
+          <span className="slider-side up-c">{t.long} 100%</span>
         </div>
 
         <div className="quick-row">
-          {[
-            { label: '풀숏', v: -1, cls: 'q-short' },
-            { label: '숏 50', v: -0.5, cls: 'q-short' },
-            { label: '전량 현금화', v: 0, cls: '' },
-            { label: '롱 50', v: 0.5, cls: 'q-long' },
-            { label: '풀매수', v: 1, cls: 'q-long' },
-          ].map((q) => (
+          {[-1, -0.5, 0, 0.5, 1].map((v, i) => (
             <button
-              key={q.label}
-              className={`quick-btn ${q.cls}`}
+              key={v}
+              className={`quick-btn ${v < 0 ? 'q-short' : v > 0 ? 'q-long' : ''}`}
               disabled={phase !== 'lock' || humanLocked}
-              onClick={() => setPendingPos(q.v)}
+              onClick={() => setPendingPos(v)}
             >
-              {q.label}
+              {t.quick[i]}
             </button>
           ))}
         </div>

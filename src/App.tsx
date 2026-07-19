@@ -7,6 +7,7 @@ import Lobby, { LobbyConfig } from './components/Lobby'
 import Round from './components/Round'
 import Intermission from './components/Intermission'
 import Final from './components/Final'
+import { useI18n } from './i18n'
 
 const ALL_CHARTS = chartsRaw as ChartData[]
 export const NUM_ROUNDS = 6
@@ -39,12 +40,13 @@ function drawLineup(seed: number): ChartData[] {
 }
 
 export default function App() {
+  const { t } = useI18n()
   const [screen, setScreen] = useState<Screen>('lobby')
   const [match, setMatch] = useState<MatchState | null>(null)
 
   const startMatch = useCallback((cfg: LobbyConfig) => {
     const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0
-    const human: PlayerMeta = { id: 0, name: cfg.name || '나', emoji: cfg.emoji, isBot: false }
+    const human: PlayerMeta = { id: 0, name: cfg.name || t.defaultName, emoji: cfg.emoji, isBot: false }
     const bots: PlayerMeta[] = BOTS.map((b, i) => ({
       id: i + 1,
       name: b.name,
@@ -62,7 +64,7 @@ export default function App() {
       results: [],
     })
     setScreen('round')
-  }, [])
+  }, [t])
 
   const onRoundDone = useCallback((rr: RoundResult) => {
     setMatch((m) => (m ? { ...m, results: [...m.results, rr] } : m))
@@ -123,7 +125,7 @@ export default function App() {
         totals={totals}
         roundIndex={match.chartIndex}
         isFinal={isFinal}
-        nextTheme={isFinal ? null : match.lineup[match.chartIndex + 1].themeName}
+        nextTheme={isFinal ? null : match.lineup[match.chartIndex + 1].theme}
         onNext={onNext}
       />
     )

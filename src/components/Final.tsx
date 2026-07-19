@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChartData, PlayerMeta, RoundResult } from '../engine/types'
-import { computeAwards } from '../engine/titles'
+import { Award, computeAwards } from '../engine/titles'
+import { useI18n } from '../i18n'
 import { sFanfare } from '../sound'
 
 interface Props {
@@ -11,9 +12,10 @@ interface Props {
   onRestart: () => void
 }
 
-const CONFETTI_COLORS = ['#ff4d5e', '#4d8dff', '#ffcb47', '#35e8ac', '#ffffff']
+const CONFETTI_COLORS = ['#ff3d54', '#3d7bff', '#ffb020', '#ffffff']
 
 export default function Final({ players, results, lineup, totals, onRestart }: Props) {
+  const { t, pname } = useI18n()
   const [toast, setToast] = useState<string | null>(null)
 
   useEffect(() => {
@@ -36,25 +38,42 @@ export default function Final({ players, results, lineup, totals, onRestart }: P
   const champion = players[order[0]]
   const podiumIds = [order[1], order[0], order[2]] // 2등-1등-3등 배치
 
+  const fmtRet = (x: number) => `${x >= 0 ? '+' : ''}${x.toFixed(1)}%`
+
+  const awardText = (a: Award): { title: string; desc: string; detail: string } => {
+    const d = t.awards[a.key]
+    switch (a.key) {
+      case 'hodlKing':
+      case 'scalperGhost':
+        return { title: d.title, desc: d.desc, detail: (d as typeof t.awards.hodlKing).detail(a.turnover.toFixed(1), fmtRet(a.totalReturn)) }
+      case 'brokerVip':
+        return { title: d.title, desc: d.desc, detail: t.awards.brokerVip.detail(Math.round(a.fees).toLocaleString()) }
+      case 'contrarianGenius':
+        return { title: d.title, desc: d.desc, detail: t.awards.contrarianGenius.detail(fmtRet(a.contrarian)) }
+      case 'bottomCatcher':
+        return { title: d.title, desc: d.desc, detail: t.awards.bottomCatcher.detail(a.catches) }
+    }
+  }
+
   const share = async () => {
     const me = order.indexOf(0) + 1
     const lines = [
-      '📈 차트 파티 — 6차트 리그전 결과',
-      `🏆 우승: ${champion.emoji} ${champion.name} (${fmtP(totals[champion.id])}P)`,
-      `🎖️ 내 순위: ${me}위 / ${players.length}명 (${fmtP(totals[0])}P)`,
+      t.shareTitle,
+      t.shareWin(`${champion.emoji} ${pname(champion)}`, fmtP(totals[champion.id])),
+      t.shareMe(me, players.length, fmtP(totals[0])),
       '',
       ...lineup.map((c, i) => {
         const r = results[i].results[0]
-        return `${i + 1}. [${c.themeName}] ${c.symbol} → ${r.returnPct >= 0 ? '+' : ''}${r.returnPct.toFixed(1)}% (${r.rank}위)`
+        return `${i + 1}. [${c.symbol}] ${fmtRet(r.returnPct)} (${t.rankSuffix(r.rank)})`
       }),
       '',
-      '같은 차트, 다른 운명. #차트파티',
+      t.shareTail,
     ]
     try {
       await navigator.clipboard.writeText(lines.join('\n'))
-      setToast('결과가 클립보드에 복사됐습니다 — 붙여넣어 자랑하세요!')
+      setToast(t.copied)
     } catch {
-      setToast('클립보드 복사 실패 😢')
+      setToast(t.copyFail)
     }
     window.setTimeout(() => setToast(null), 2600)
   }
@@ -75,14 +94,15 @@ export default function Final({ players, results, lineup, totals, onRestart }: P
         />
       ))}
 
-      <h1 className="final-title">🏆 {champion.name} 우승!</h1>
+      <div className="final-kicker">CHART PARTY — FINAL RESULT</div>
+      <h1 className="final-title">🏆 {t.champion(pname(champion))}</h1>
 
       <div className="podium">
         {podiumIds.map((id, col) =>
           id === undefined ? null : (
             <div className="podium-col" key={id}>
               <span className="podium-face">{players[id].emoji}</span>
-              <span className="podium-name">{players[id].name}</span>
+              <span className="podium-name">{pname(players[id])}</span>
               <span className="podium-pts">{fmtP(totals[id])}P</span>
               <div className="podium-block">{col === 1 ? 1 : col === 0 ? 2 : 3}</div>
             </div>
@@ -91,35 +111,38 @@ export default function Final({ players, results, lineup, totals, onRestart }: P
       </div>
 
       <div className="awards-grid">
-        {awards.map((a, i) => (
-          <div className="award-card" key={a.key} style={{ animationDelay: `${0.8 + i * 0.25}s` }}>
-            <div className="award-emoji">{a.emoji}</div>
-            <div className="award-title">{a.title}</div>
-            <div className="award-who">
-              {players[a.playerId].emoji} {players[a.playerId].name}
+        {awards.map((a, i) => {
+          const txt = awardText(a)
+          return (
+            <div className="award-card" key={a.key} style={{ animationDelay: `${0.8 + i * 0.25}s` }}>
+              <div className="award-emoji">{a.emoji}</div>
+              <div className="award-title">{txt.title}</div>
+              <div className="award-who">
+                {players[a.playerId].emoji} {pname(players[a.playerId])}
+              </div>
+              <div className="award-desc">{txt.desc}</div>
+              <div className="award-detail">{txt.detail}</div>
             </div>
-            <div className="award-desc">{a.desc}</div>
-            <div className="award-detail">{a.detail}</div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <div className="final-table-wrap">
         <table className="result-table">
           <thead>
             <tr>
-              <th>#</th><th>트레이더</th>
+              <th>#</th><th>{t.thTrader}</th>
               {lineup.map((c, i) => (
-                <th key={i} className="num" title={c.themeName}>{c.symbol}</th>
+                <th key={i} className="num">{c.symbol}</th>
               ))}
-              <th className="num">합계 P</th>
+              <th className="num">{t.sumPts}</th>
             </tr>
           </thead>
           <tbody>
             {order.map((id, i) => (
               <tr key={id} className={id === 0 ? 'me' : ''}>
                 <td className="mono">{i + 1}</td>
-                <td>{players[id].emoji} {players[id].name}</td>
+                <td>{players[id].emoji} {pname(players[id])}</td>
                 {results.map((rr, ri) => (
                   <td key={ri} className={`num ${rr.results[id].rank === 1 ? 'gold-c' : 'dim'}`}>
                     {fmtP(rr.results[id].points)}
@@ -133,8 +156,8 @@ export default function Final({ players, results, lineup, totals, onRestart }: P
       </div>
 
       <div className="final-actions">
-        <button className="share-btn" onClick={share}>📋 결과 카드 복사</button>
-        <button className="again-btn" onClick={onRestart}>한 판 더</button>
+        <button className="share-btn" onClick={share}>{t.copyBtn}</button>
+        <button className="again-btn" onClick={onRestart}>{t.againBtn}</button>
       </div>
 
       {toast && <div className="toast">{toast}</div>}
