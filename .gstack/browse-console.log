@@ -1,0 +1,18 @@
+[2026-07-19T22:04:07.745Z] [debug] [vite] connecting...
+[2026-07-19T22:04:07.761Z] [info] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
+[2026-07-19T22:04:07.807Z] [debug] [vite] connected.
+[2026-07-19T22:04:35.905Z] [debug] [vite] invalidate /src/i18n.tsx: Could not Fast Refresh ("BOT_NAMES" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2026-07-19T22:04:35.905Z] [debug] [vite] hot updated: /src/i18n.tsx
+[2026-07-19T22:04:35.975Z] [debug] [vite] connecting...
+[2026-07-19T22:04:35.983Z] [debug] [vite] connected.
+[2026-07-19T22:04:36.069Z] [info] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
+[2026-07-19T22:04:39.211Z] [debug] [vite] hot updated: /src/styles.css
+[2026-07-19T22:04:41.529Z] [debug] [vite] hot updated: /src/styles.css
+[2026-07-19T22:04:43.144Z] [debug] [vite] hot updated: /src/styles.css
+[2026-07-19T22:04:49.580Z] [debug] [vite] connecting...
+[2026-07-19T22:04:49.582Z] [debug] [vite] connected.
+[2026-07-19T22:04:49.582Z] [info] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
+[2026-07-19T22:26:13.755Z] [debug] [vite] hot updated: /src/App.tsx
+[2026-07-19T22:26:28.418Z] [debug] [vite] connecting...
+[2026-07-19T22:26:28.419Z] [debug] [vite] connected.
+[2026-07-19T22:26:28.434Z] [info] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold
