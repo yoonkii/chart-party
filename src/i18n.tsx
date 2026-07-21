@@ -115,6 +115,48 @@ function makeDict(lang: Lang) {
       ? '롱/숏 슬라이더 하나 · 포지션 변경분 수수료 0.5% · 한 틱 -95% 손실 시 강제청산 💥'
       : 'One long/short slider · 0.5% fee on position changes · -95% in one tick = margin call 💥',
 
+    // ── 홈 (모드 선택)
+    soloBtn: ko ? '혼자 연습' : 'SOLO RUN',
+    soloSub: ko ? '봇 7인과 바로 시작' : 'vs 7 bots, instant start',
+    createBtn: ko ? '방 만들기' : 'CREATE ROOM',
+    createSub: ko ? '친구들과 최대 8인' : 'up to 8 friends',
+    joinBtn: ko ? '참가' : 'JOIN',
+    joinPlaceholder: ko ? '방 코드' : 'ROOM CODE',
+    connecting: ko ? '연결 중…' : 'Connecting…',
+    netErrors: {
+      'room-not-found': ko ? '그 코드의 방이 없습니다' : 'No room with that code',
+      'room-full': ko ? '방이 가득 찼습니다 (최대 8인)' : 'Room is full (max 8)',
+      'join-timeout': ko ? '접속 시간 초과 — 코드를 확인하세요' : 'Timed out — check the code',
+      'room-create-failed': ko ? '방 생성 실패 — 잠시 후 다시' : 'Failed to create room — try again',
+      network: ko ? '네트워크 오류' : 'Network error',
+    } as Record<string, string>,
+    hostLeft: ko ? '호스트가 방을 떠났습니다' : 'The host left the room',
+
+    // ── 룸 로비
+    roomKicker: ko ? '방 코드 — 친구에게 알려주세요' : 'ROOM CODE — SHARE WITH FRIENDS',
+    codeCopied: ko ? '코드가 복사됐습니다' : 'Code copied',
+    players: ko ? '참가자' : 'PLAYERS',
+    botFillNote: (n: number) =>
+      ko ? `빈자리 ${n}칸은 봇이 채웁니다` : `${n} empty seat${n === 1 ? '' : 's'} filled by bots`,
+    waitingHost: ko ? '호스트가 시작하면 바로 출발합니다' : 'Waiting for the host to start…',
+    startMp: ko ? '전원 출발' : 'START MATCH',
+    leaveRoom: ko ? '나가기' : 'LEAVE',
+    disconnected: ko ? '연결 끊김' : 'OFFLINE',
+
+    // ── 드라마
+    leadChange: (name: string) => (ko ? `👑 리드 체인지! ${name}` : `👑 NEW LEADER! ${name}`),
+    clutchTime: ko ? '운명의 마지막 창 — 파이널 ×1.5' : 'THE FINAL WINDOW — ×1.5 STAKES',
+    hostAdvances: ko ? '호스트가 진행합니다' : 'Host controls the pace',
+    stingerLabel: (n: number) => (ko ? `차트 ${n} / 6` : `CHART ${n} OF 6`),
+    stingers: {
+      1: ko ? '몸풀기. 여기서 잃으면 할 말이 없다' : 'A warm-up. No excuses here.',
+      2: ko ? '실적 시즌의 널뛰기 — 안전벨트 착용' : 'Earnings season turbulence. Buckle up.',
+      3: ko ? '떨어지는 칼날. 잡을 것인가, 피할 것인가' : 'A falling knife. Catch it or dodge it.',
+      4: ko ? '어디까지 오르는지 아무도 모른다' : 'Nobody knows how high this goes.',
+      5: ko ? '아무 일도 일어나지 않는 것이 함정이다' : 'Nothing happening IS the trap.',
+      6: ko ? '역사에 남은 그 차트. 전부를 걸 시간' : 'The chart that made history. All in.',
+    } as Record<number, string>,
+
     // ── 라운드
     chart: ko ? '차트' : 'CHART',
     decision: ko ? '의사결정' : 'DECISION',

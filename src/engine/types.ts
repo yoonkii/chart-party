@@ -24,6 +24,8 @@ export interface PlayerMeta {
   isBot: boolean
   botKey?: string
   tagline?: string
+  /** 멀티플레이 접속 상태 (끊기면 마지막 포지션 유지, false일 때만 표시) */
+  connected?: boolean
 }
 
 /** 한 플레이어의 라운드(차트 1개) 결과 */

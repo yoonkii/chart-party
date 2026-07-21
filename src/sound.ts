@@ -72,6 +72,31 @@ export function sCountdown() {
   tone(980, 0.07, { type: 'square', gain: 0.03 })
 }
 
+/** 리드 체인지 — 왕관이 넘어가는 순간 */
+export function sLeadChange() {
+  tone(660, 0.12, { type: 'triangle', gain: 0.07 })
+  tone(880, 0.12, { type: 'triangle', gain: 0.07, delay: 0.1 })
+  tone(1320, 0.2, { type: 'triangle', gain: 0.08, delay: 0.2 })
+}
+
+/** 클러치(파이널 종반) — 심장박동 더블 썸프 */
+export function sClutch() {
+  tone(70, 0.16, { type: 'sine', gain: 0.16, slide: 45 })
+  tone(65, 0.2, { type: 'sine', gain: 0.13, slide: 40, delay: 0.24 })
+}
+
+/** 테마 인트로 스팅어 */
+export function sStinger() {
+  tone(180, 0.5, { type: 'sawtooth', slide: 420, gain: 0.05 })
+  tone(523, 0.3, { type: 'triangle', gain: 0.08, delay: 0.42 })
+  tone(784, 0.4, { type: 'triangle', gain: 0.08, delay: 0.55 })
+}
+
+/** 이모지 리액션 팝 */
+export function sReact() {
+  tone(900 + Math.random() * 500, 0.08, { type: 'triangle', gain: 0.045, slide: 1500 })
+}
+
 export function sFanfare() {
   ;[523, 659, 784, 1047, 784, 1047].forEach((f, i) =>
     tone(f, 0.3, { type: 'triangle', gain: 0.08, delay: i * 0.14 })

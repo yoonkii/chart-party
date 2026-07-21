@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { BOTS } from '../engine/bots'
 import { Speed } from '../App'
+import { normalizeRoomCode } from '../net/protocol'
 import { useI18n } from '../i18n'
 
-export interface LobbyConfig {
+export interface HomeConfig {
   name: string
   emoji: string
   speed: Speed
@@ -11,7 +12,7 @@ export interface LobbyConfig {
 
 const EMOJIS = ['🦁', '🐯', '🦊', '🐼', '🐵', '🦄', '🐙', '🐳']
 
-const SPEED_VALUES: Speed[] = [
+export const SPEED_VALUES: Speed[] = [
   { lockMs: 15000, playMs: 10000 },
   { lockMs: 8000, playMs: 6000 },
   { lockMs: 5000, playMs: 4000 },
@@ -29,17 +30,25 @@ const TICKER_EN = [
   ['BOTTOMCATCH', '+61.3%', true], ['FADEGENIUS', '+15.9%', true], ['MARGINCALL', '-95.0%', false],
 ] as const
 
-export default function Lobby({ onStart }: { onStart: (cfg: LobbyConfig) => void }) {
+interface Props {
+  onSolo: (cfg: HomeConfig) => void
+  onCreate: (cfg: HomeConfig) => void
+  onJoin: (cfg: HomeConfig, code: string) => void
+  busy: boolean
+}
+
+export default function Home({ onSolo, onCreate, onJoin, busy }: Props) {
   const { lang, setLang, t } = useI18n()
   const [name, setName] = useState(() => localStorage.getItem('cp_name') ?? '')
   const [emoji, setEmoji] = useState(() => localStorage.getItem('cp_emoji') ?? '🦁')
   const [speedIdx, setSpeedIdx] = useState(() => Number(localStorage.getItem('cp_speed_idx') ?? 0))
+  const [joinCode, setJoinCode] = useState('')
 
-  const start = () => {
+  const cfg = (): HomeConfig => {
     localStorage.setItem('cp_name', name)
     localStorage.setItem('cp_emoji', emoji)
     localStorage.setItem('cp_speed_idx', String(speedIdx))
-    onStart({ name: name.trim(), emoji, speed: SPEED_VALUES[speedIdx] })
+    return { name: name.trim(), emoji, speed: SPEED_VALUES[speedIdx] }
   }
 
   return (
@@ -78,7 +87,6 @@ export default function Lobby({ onStart }: { onStart: (cfg: LobbyConfig) => void
                 maxLength={12}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && start()}
               />
               <div className="emoji-pick">
                 {EMOJIS.map((e) => (
@@ -102,35 +110,38 @@ export default function Lobby({ onStart }: { onStart: (cfg: LobbyConfig) => void
             </div>
           </div>
 
-          <div>
-            <div className="panel-cap">{t.roster}</div>
-            <div className="bot-roster">
-              {BOTS.map((b) => (
-                <BotRow key={b.key} botKey={b.key} emoji={b.emoji} />
-              ))}
+          <button className="start-btn" onClick={() => onSolo(cfg())} disabled={busy}>
+            {t.soloBtn}
+            <small>{t.soloSub}</small>
+          </button>
+
+          <div className="mp-zone">
+            <button className="create-btn" onClick={() => onCreate(cfg())} disabled={busy}>
+              {busy ? t.connecting : t.createBtn}
+              <small>{t.createSub}</small>
+            </button>
+            <div className="join-row">
+              <input
+                className="name-input code-input"
+                placeholder={t.joinPlaceholder}
+                maxLength={4}
+                value={joinCode}
+                onChange={(e) => setJoinCode(normalizeRoomCode(e.target.value))}
+                onKeyDown={(e) => e.key === 'Enter' && joinCode.length === 4 && onJoin(cfg(), joinCode)}
+              />
+              <button
+                className="join-btn"
+                disabled={busy || joinCode.length !== 4}
+                onClick={() => onJoin(cfg(), joinCode)}
+              >
+                {busy ? '…' : t.joinBtn}
+              </button>
             </div>
           </div>
-
-          <button className="start-btn" onClick={start}>
-            {t.start}
-            <small>{t.startSub}</small>
-          </button>
         </div>
       </div>
 
       <Ticker lang={lang} />
-    </div>
-  )
-}
-
-function BotRow({ botKey, emoji }: { botKey: string; emoji: string }) {
-  const { pname, ptagline } = useI18n()
-  const fake = { id: -1, name: '', emoji, isBot: true, botKey }
-  return (
-    <div className="bot-chip">
-      <span className="e">{emoji}</span>
-      <span>{pname(fake)}</span>
-      <span className="t">{ptagline(fake)}</span>
     </div>
   )
 }

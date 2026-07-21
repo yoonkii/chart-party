@@ -13,6 +13,7 @@ interface Props {
   deltas: number[]
   /** 델타 애니메이션 재발동 키 (틱 번호) */
   deltaStamp: number
+  myId: number
 }
 
 const ROW_H = 47
@@ -27,6 +28,7 @@ export default memo(function RankBar({
   liqSet,
   deltas,
   deltaStamp,
+  myId,
 }: Props) {
   const { t, lang, pname, ptagline } = useI18n()
 
@@ -60,7 +62,7 @@ export default memo(function RankBar({
           return (
             <div
               key={p.id}
-              className={`rank-row${p.id === 0 ? ' me' : ''}${rank === 0 ? ' r1' : ''}`}
+              className={`rank-row${p.id === myId ? ' me' : ''}${rank === 0 ? ' r1' : ''}${p.connected === false ? ' offline' : ''}`}
               style={{ top: rank * ROW_H }}
             >
               {Math.abs(pnl) > 0.01 && (
@@ -75,7 +77,7 @@ export default memo(function RankBar({
                 {rank === 0 && <span className="crown">👑</span>}
               </span>
               <span className="nm">
-                {pname(p)}
+                {pname(p)} {p.connected === false && '📵'}
                 {ptagline(p) && <small>{ptagline(p)}</small>}
               </span>
               {showDelta && (

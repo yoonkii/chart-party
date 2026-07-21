@@ -9,12 +9,14 @@ interface Props {
   results: RoundResult[]
   lineup: ChartData[]
   totals: number[]
+  myId: number
+  isDirector: boolean
   onRestart: () => void
 }
 
 const CONFETTI_COLORS = ['#ff3d54', '#3d7bff', '#ffb020', '#ffffff']
 
-export default function Final({ players, results, lineup, totals, onRestart }: Props) {
+export default function Final({ players, results, lineup, totals, myId, isDirector, onRestart }: Props) {
   const { t, pname } = useI18n()
   const [toast, setToast] = useState<string | null>(null)
 
@@ -56,14 +58,14 @@ export default function Final({ players, results, lineup, totals, onRestart }: P
   }
 
   const share = async () => {
-    const me = order.indexOf(0) + 1
+    const me = order.indexOf(myId) + 1
     const lines = [
       t.shareTitle,
       t.shareWin(`${champion.emoji} ${pname(champion)}`, fmtP(totals[champion.id])),
-      t.shareMe(me, players.length, fmtP(totals[0])),
+      t.shareMe(me, players.length, fmtP(totals[myId])),
       '',
       ...lineup.map((c, i) => {
-        const r = results[i].results[0]
+        const r = results[i].results[myId]
         return `${i + 1}. [${c.symbol}] ${fmtRet(r.returnPct)} (${t.rankSuffix(r.rank)})`
       }),
       '',
@@ -140,7 +142,7 @@ export default function Final({ players, results, lineup, totals, onRestart }: P
           </thead>
           <tbody>
             {order.map((id, i) => (
-              <tr key={id} className={id === 0 ? 'me' : ''}>
+              <tr key={id} className={id === myId ? 'me' : ''}>
                 <td className="mono">{i + 1}</td>
                 <td>{players[id].emoji} {pname(players[id])}</td>
                 {results.map((rr, ri) => (
@@ -157,7 +159,13 @@ export default function Final({ players, results, lineup, totals, onRestart }: P
 
       <div className="final-actions">
         <button className="share-btn" onClick={share}>{t.copyBtn}</button>
-        <button className="again-btn" onClick={onRestart}>{t.againBtn}</button>
+        {isDirector ? (
+          <button className="again-btn" onClick={onRestart}>{t.againBtn}</button>
+        ) : (
+          <span className="auto-note" style={{ opacity: 1, animation: 'none', alignSelf: 'center' }}>
+            <span className="waiting-dot" /> {t.hostAdvances}
+          </span>
+        )}
       </div>
 
       {toast && <div className="toast">{toast}</div>}

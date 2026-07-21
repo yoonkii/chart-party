@@ -11,17 +11,40 @@ interface Props {
   roundIndex: number
   isFinal: boolean
   nextTheme: number | null
+  myId: number
+  /** 진행 권한 (솔로/호스트). 게스트는 호스트를 따라간다 */
+  isDirector: boolean
   onNext: () => void
 }
 
 const AUTO_MS = 30000
 
+/** 벤치마크 숫자 카운트업 */
+function useCountUp(target: number, delayMs: number, durMs = 1100): number {
+  const [v, setV] = useState(0)
+  useEffect(() => {
+    let raf = 0
+    const t0 = performance.now() + delayMs
+    const loop = (now: number) => {
+      const p = Math.min(1, Math.max(0, (now - t0) / durMs))
+      const e = 1 - Math.pow(1 - p, 3)
+      setV(target * e)
+      if (p < 1) raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
+  }, [target, delayMs, durMs])
+  return v
+}
+
 /** 정산 쇼 — 매 차트의 클라이맥스 (§4) */
-export default function Intermission({ chart, players, result, totals, roundIndex, isFinal, nextTheme, onNext }: Props) {
+export default function Intermission({ chart, players, result, totals, roundIndex, isFinal, nextTheme, myId, isDirector, onNext }: Props) {
   const { t, lang, pname, themeName, chartName, chartBlurb } = useI18n()
   const [autoLeft, setAutoLeft] = useState(AUTO_MS)
+  const bhAnim = useCountUp(result.buyHoldPct, 750)
 
   useEffect(() => {
+    if (!isDirector) return
     const start = performance.now()
     const iv = window.setInterval(() => {
       const left = AUTO_MS - (performance.now() - start)
@@ -32,12 +55,12 @@ export default function Intermission({ chart, players, result, totals, roundInde
       }
     }, 250)
     return () => window.clearInterval(iv)
-  }, [onNext])
+  }, [onNext, isDirector])
 
   const sorted = [...result.results].sort((a, b) => a.rank - b.rank)
   const bh = result.buyHoldPct
   const losers = sorted.filter((r) => r.returnPct < bh)
-  const mySkill = skillScore(result.results[0].returnPct, result.perfectPct)
+  const mySkill = skillScore(result.results[myId].returnPct, result.perfectPct)
 
   const fmtFee = (x: number) =>
     lang === 'en' ? `₩${Math.round(x / 1000).toLocaleString()}K` : `${Math.round(x / 10000).toLocaleString()}만`
@@ -59,7 +82,7 @@ export default function Intermission({ chart, players, result, totals, roundInde
           <div className="reveal-kicker">{t.benchKicker}</div>
           <div className="bench-row">
             <span className={`bench-big ${bh >= 0 ? 'up-c' : 'down-c'}`}>
-              {bh >= 0 ? '+' : ''}{bh.toFixed(1)}%
+              {bhAnim >= 0 ? '+' : ''}{bhAnim.toFixed(1)}%
             </span>
             <span className="bench-label">
               {t.benchLine1a}<b>{t.benchLine1b}</b>{t.benchLine1c}
@@ -103,10 +126,16 @@ export default function Intermission({ chart, players, result, totals, roundInde
               </tr>
             </thead>
             <tbody>
-              {sorted.map((r) => {
+              {sorted.map((r, i) => {
                 const p = players[r.playerId]
+                // 역순 공개: 꼴찌부터 한 명씩 → 1위가 마지막에 뜬다
+                const delay = 1.3 + (sorted.length - 1 - i) * 0.28
                 return (
-                  <tr key={r.playerId} className={r.playerId === 0 ? 'me' : ''}>
+                  <tr
+                    key={r.playerId}
+                    className={`row-reveal${r.playerId === myId ? ' me' : ''}`}
+                    style={{ animationDelay: `${delay}s` }}
+                  >
                     <td className="mono">{medal(r.rank)}</td>
                     <td>{p.emoji} {pname(p)}</td>
                     <td className={`num ${r.returnPct > 0.005 ? 'up-c' : r.returnPct < -0.005 ? 'down-c' : 'dim'}`}>
@@ -123,10 +152,18 @@ export default function Intermission({ chart, players, result, totals, roundInde
           </table>
         </div>
 
-        <button className="next-btn" onClick={onNext}>
-          {isFinal ? t.toAwards : `${t.nextChart(nextTheme !== null ? themeName(nextTheme) : '')} ▶`}
-        </button>
-        <div className="auto-note">{t.autoNote(Math.ceil(autoLeft / 1000))}</div>
+        {isDirector ? (
+          <>
+            <button className="next-btn" onClick={onNext}>
+              {isFinal ? t.toAwards : `${t.nextChart(nextTheme !== null ? themeName(nextTheme) : '')} ▶`}
+            </button>
+            <div className="auto-note">{t.autoNote(Math.ceil(autoLeft / 1000))}</div>
+          </>
+        ) : (
+          <div className="auto-note" style={{ animationDelay: '1s' }}>
+            <span className="waiting-dot" /> {t.hostAdvances}
+          </div>
+        )}
       </div>
     </div>
   )
